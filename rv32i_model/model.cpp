@@ -46,6 +46,13 @@ void rv32i_model_t::reset() {
   rtl->eval();
 
   // TODO: set the real reset PC
+  if (elf.is_valid()) {
+    set_pc(elf.get_entry_point());
+  }
+  else {
+    set_pc(0x1000);
+    set_reg(rv_reg_sp, 0x1fff);
+  }
 }
 
 void rv32i_model_t::step() {

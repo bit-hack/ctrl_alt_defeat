@@ -1,12 +1,3 @@
-// Dear ImGui: standalone example application for GLFW + OpenGL2, using legacy fixed pipeline
-// (GLFW is a cross-platform general purpose library for handling windows, inputs, OpenGL/Vulkan/Metal graphics context creation, etc.)
-// If you are new to Dear ImGui, read documentation from the docs/ folder + read the top of imgui.cpp.
-// Read online: https://github.com/ocornut/imgui/tree/master/docs
-
-// **DO NOT USE THIS CODE IF YOUR CODE/ENGINE IS USING MODERN OPENGL (SHADERS, VBO, VAO, etc.)**
-// **Prefer using the code in the example_glfw_opengl2/ folder**
-// See imgui_impl_glfw.cpp for details.
-
 #include <cstdio>
 #include <thread>
 
@@ -22,8 +13,9 @@
 
 
 enum {
-  MEM_BASE = 0x1000,
-  MEM_SIZE = 0x1000,
+  MEM_BASE  = 0x1000,
+  MEM_SIZE  = 0x1000,
+  MEM_STACK = 0x1fff,
 };
 
 
@@ -53,7 +45,10 @@ void gui_registers(rv32i_model_t &model) {
 
   ImGui::SetNextWindowPos(ImVec2{ 16, 16 });
   ImGui::SetNextWindowSize(ImVec2{ 16 * 9, 16 * 39 });
-  ImGui::Begin("REGISTERS", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
+  ImGui::Begin("REGISTERS", nullptr,
+    ImGuiWindowFlags_NoResize |
+    ImGuiWindowFlags_NoMove |
+    ImGuiWindowFlags_NoCollapse);
 
   ImGui::Columns(2);
   ImGui::Separator();
@@ -88,9 +83,13 @@ void gui_memory(rv32i_model_t &model) {
   ImGui::SetNextWindowPos(ImVec2{ 16 * 11, 16 });
   ImGui::SetNextWindowSize(ImVec2{ 16 * 36, 16 * 20 });
 
-  ImGui::Begin("MEMORY", nullptr, ImGuiWindowFlags_HorizontalScrollbar |
-                                  ImGuiWindowFlags_NoResize |
-                                  ImGuiWindowFlags_NoMove);
+  ImGui::Begin("MEMORY", nullptr,
+    ImGuiWindowFlags_HorizontalScrollbar |
+    ImGuiWindowFlags_NoResize |
+    ImGuiWindowFlags_NoMove |
+    ImGuiWindowFlags_NoCollapse);
+
+  ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 0));
 
   uint8_t temp[16];
   ImGuiListClipper clipper{ MEM_SIZE / 16, ImGui::GetTextLineHeight() };
@@ -100,21 +99,44 @@ void gui_memory(rv32i_model_t &model) {
   while (clipper.Step()) {
     for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; ++i) {
       const uint32_t addr = MEM_BASE + i * 16;
-
+      // read in a line
       model.memory().read(temp, addr, 16);
-
+      // print address
       ImGui::Text("%08x: ", addr);
-
+      // print hex view
       for (int i = 0; i < 16; ++i) {
+        const uint8_t val = temp[i];
         ImGui::SameLine();
-        ImGui::Text("%02x", temp[i]);
+        if ((addr + i) >= pc && (addr + i) < pc + 4) {
+          ImGui::TextColored(ImVec4{ 0.8f, 0.7f, 0.2f, 1.f }, "%02x", val);
+        }
+        else {
+          if (val) {
+            ImGui::Text("%02x", val);
+          }
+          else {
+            ImGui::TextDisabled("%02x", val);
+          }
+        }
       }
-
+      // split between hex and ascii viewer
+      ImGui::SameLine();
+      ImGui::Dummy(ImVec2{8.f, 0.f});
+      // print ascii view
       for (int i = 0; i < 16; ++i) {
-
+        const uint8_t val = temp[i];
+        ImGui::SameLine();
+        if (val) {
+          ImGui::Text("%c", (val >= 0x20 && val < 0x7f) ? val : '.');
+        }
+        else {
+          ImGui::TextDisabled(" ");
+        }
       }
     }
   }
+
+  ImGui::PopStyleVar(1);
   ImGui::End();
 }
 
@@ -123,7 +145,10 @@ void gui_cpu(rv32i_model_t &model) {
   ImGui::SetNextWindowPos(ImVec2{ 16 * 48, 16 });
   ImGui::SetNextWindowSize(ImVec2{ 16 * 15, 16 * 4 });
 
-  ImGui::Begin("CPU", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
+  ImGui::Begin("CPU", nullptr,
+    ImGuiWindowFlags_NoResize |
+    ImGuiWindowFlags_NoMove |
+    ImGuiWindowFlags_NoCollapse);
   if (ImGui::Button("Step")) {
     model.step();
   }
@@ -145,11 +170,13 @@ void gui_cpu(rv32i_model_t &model) {
 void gui_disassemble(rv32i_model_t &model) {
   ImGui::SetNextWindowPos(ImVec2{ 16 * 11, 16 * 22 });
   ImGui::SetNextWindowSize(ImVec2{ 16 * 36, 16 * 20 });
-  ImGui::Begin("DISASSEMBLY", nullptr, ImGuiWindowFlags_HorizontalScrollbar |
-                                       ImGuiWindowFlags_NoResize |
-                                       ImGuiWindowFlags_NoMove);
+  ImGui::Begin("DISASSEMBLY", nullptr,
+    ImGuiWindowFlags_HorizontalScrollbar |
+    ImGuiWindowFlags_NoResize |
+    ImGuiWindowFlags_NoMove |
+    ImGuiWindowFlags_NoCollapse);
 
-  char temp[1024];
+  char temp[128];
   ImGuiListClipper clipper{ MEM_SIZE / 4, ImGui::GetTextLineHeight() };
 
   const uint32_t pc = model.get_pc();
@@ -173,6 +200,42 @@ void gui_disassemble(rv32i_model_t &model) {
       else {
         ImGui::TextDisabled("%08x:  %08x  %s", addr, raw, "unknown");
       }
+
+      if (const char *name = model.program().find_symbol(addr)) {
+        ImGui::SameLine(450);
+        ImGui::TextDisabled("; %s", name);
+      }
+    }
+  }
+
+  ImGui::End();
+}
+
+void gui_stack(rv32i_model_t &model) {
+  ImGui::SetNextWindowPos(ImVec2{ 16 * 48, 16 * 6 });
+  ImGui::SetNextWindowSize(ImVec2{ 16 * 15, 16 * 20 });
+  ImGui::Begin("STACK", nullptr,
+    ImGuiWindowFlags_HorizontalScrollbar |
+    ImGuiWindowFlags_NoResize |
+    ImGuiWindowFlags_NoMove |
+    ImGuiWindowFlags_NoCollapse);
+
+  const int items = MEM_STACK - (model.get_reg(rv_reg_sp) & ~0xfu );
+
+  ImGuiListClipper clipper{ items, ImGui::GetTextLineHeight() };
+
+  while (clipper.Step()) {
+    for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; ++i) {
+
+      const uint32_t addr = (MEM_STACK & ~3u) - i * 4;
+      const uint32_t raw = model.memory().read_w(addr);
+
+      if (raw) {
+        ImGui::Text("%08x:  %08x", addr, raw);
+      }
+      else {
+        ImGui::TextDisabled("%08x:  %08x", addr, raw);
+      }
     }
   }
 
@@ -183,8 +246,8 @@ int main(int, char**) {
   rv32i_model_t model;
   model.reset();
 
-#if 0
-  if (!model.load_elf("C:/repos/ctrl_alt_defeat/rv32i_model/tests/compliance/elf/I-ADD-01.elf")) {
+#if 1
+  if (!model.load_elf("C:/repos/ctrl_alt_defeat/levels/template/out.elf")) {
 #else
   if (!model.load_hex("C:/repos/ctrl_alt_defeat/rom.hex", MEM_BASE)) {
 #endif
@@ -195,8 +258,9 @@ int main(int, char**) {
   glfwSetErrorCallback(glfw_error_callback);
   if (!glfwInit())
       return 1;
-  GLFWwindow* window = glfwCreateWindow(1024, 768, "Ctrl-Alt-Defeat", NULL, NULL);
-  if (window == NULL)
+  GLFWmonitor* monitor = 0 ? glfwGetPrimaryMonitor() : nullptr;
+  GLFWwindow* window = glfwCreateWindow(1024, 768, "Ctrl-Alt-Defeat", monitor, nullptr);
+  if (window == nullptr)
       return 1;
   glfwMakeContextCurrent(window);
   glfwSwapInterval(1);
@@ -222,10 +286,15 @@ int main(int, char**) {
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
+    if (will_continue) {
+      model.step();
+    }
+
     gui_cpu(model);
     gui_registers(model);
     gui_memory(model);
     gui_disassemble(model);
+    gui_stack(model);
 
     // Rendering
     ImGui::Render();
@@ -234,14 +303,9 @@ int main(int, char**) {
     glViewport(0, 0, display_w, display_h);
     glClearColor(.3f, .3f, .3f, 1.f);
     glClear(GL_COLOR_BUFFER_BIT);
-
     ImGui_ImplOpenGL2_RenderDrawData(ImGui::GetDrawData());
     glfwMakeContextCurrent(window);
     glfwSwapBuffers(window);
-
-    if (will_continue) {
-      model.step();
-    }
 
     std::this_thread::yield();
   }
@@ -250,7 +314,6 @@ int main(int, char**) {
   ImGui_ImplOpenGL2_Shutdown();
   ImGui_ImplGlfw_Shutdown();
   ImGui::DestroyContext();
-
   glfwDestroyWindow(window);
   glfwTerminate();
 

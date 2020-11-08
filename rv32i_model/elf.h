@@ -181,6 +181,9 @@ struct elf_t {
 
   // check the ELF file header is valid
   bool is_valid() const {
+    if (hdr == nullptr) {
+      return false;
+    }
     // check for ELF magic
     if (hdr->e_ident[0] != 0x7f &&
       hdr->e_ident[1] != 'E' &&

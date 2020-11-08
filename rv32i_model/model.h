@@ -6,6 +6,12 @@
 #include "memory.h"
 
 
+enum {
+  rv_reg_zero,
+  rv_reg_ra,
+  rv_reg_sp,
+};
+
 struct rv32i_model_t {
 
   rv32i_model_t();
@@ -30,8 +36,8 @@ struct rv32i_model_t {
     return mem;
   }
 
-  const memory_t &memory() const {
-    return mem;
+  elf_t &program() {
+    return elf;
   }
 
 protected:

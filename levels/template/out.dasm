@@ -1,0 +1,40 @@
+
+out.elf:     file format elf32-littleriscv
+
+SYMBOL TABLE:
+00001000 l    d  .text	00000000 .text
+0000104c l    d  .sdata	00000000 .sdata
+00000000 l    d  .riscv.attributes	00000000 .riscv.attributes
+00000000 l    d  .comment	00000000 .comment
+00000000 l    df *ABS*	00000000 main.c
+0000104c g     O .sdata	00000004 x
+00001000 g       .text	00000000 _start
+00001010 g     F .text	0000003c main
+00001fff g       .sdata	00000000 _end
+
+
+
+Disassembly of section .text:
+
+00001000 <_start>:
+    1000:	00000013          	nop
+    1004:	00002137          	lui	sp,0x2
+    1008:	ffc10113          	addi	sp,sp,-4 # 1ffc <x+0xfb0>
+    100c:	0040006f          	j	1010 <main>
+
+00001010 <main>:
+    1010:	00000617          	auipc	a2,0x0
+    1014:	03c60613          	addi	a2,a2,60 # 104c <x>
+    1018:	000026b7          	lui	a3,0x2
+    101c:	00062783          	lw	a5,0(a2)
+    1020:	00d79713          	slli	a4,a5,0xd
+    1024:	00f74733          	xor	a4,a4,a5
+    1028:	01175793          	srli	a5,a4,0x11
+    102c:	00e7c733          	xor	a4,a5,a4
+    1030:	00571793          	slli	a5,a4,0x5
+    1034:	00e7c7b3          	xor	a5,a5,a4
+    1038:	00000717          	auipc	a4,0x0
+    103c:	00f72a23          	sw	a5,20(a4) # 104c <x>
+    1040:	0ff7f793          	andi	a5,a5,255
+    1044:	fef68fa3          	sb	a5,-1(a3) # 1fff <_end>
+    1048:	fd5ff06f          	j	101c <main+0xc>
