@@ -44,6 +44,8 @@ void rv32i_model_t::reset() {
   }
   rtl->reset = 0;
   rtl->eval();
+
+  // TODO: set the real reset PC
 }
 
 void rv32i_model_t::step() {
