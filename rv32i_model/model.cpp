@@ -4,7 +4,7 @@
 
 
 rv32i_model_t::rv32i_model_t()
-  : active(false)
+  : ecall_pending(false)
   , rtl(new Vrv32i_cpu_t)
 {
 }
@@ -35,7 +35,8 @@ void rv32i_model_t::set_reg(uint32_t index, uint32_t value) {
 }
 
 void rv32i_model_t::reset() {
-  active = true;
+  rtl->rv32i_cpu_t__DOT__inst = 0;
+  ecall_pending = false;
   rtl->hold = 0;
   rtl->reset = 1;
   for (int i = 0; i < 4; ++i) {
@@ -45,7 +46,6 @@ void rv32i_model_t::reset() {
   rtl->reset = 0;
   rtl->eval();
 
-  // TODO: set the real reset PC
   if (elf.is_valid()) {
     set_pc(elf.get_entry_point());
   }
@@ -57,7 +57,12 @@ void rv32i_model_t::reset() {
 
 void rv32i_model_t::step() {
   static const uint32_t ecall_inst = 0x00000073;
-  while (active) {
+
+  if (ecall_pending) {
+    return;
+  }
+
+  for (;;) {
 
     // update logic
     rtl->eval();
@@ -83,22 +88,18 @@ void rv32i_model_t::step() {
       }
     }
 
-    // check if we just fetched and ecall instruction
-    if (rtl->rv32i_cpu_t__DOT__inst == ecall_inst) {
-      active = false;
-    }
-
     // toggle the clock
     rtl->clk ^= 1;
     // exit on next instruction fetch
     if (rtl->clk && get_phi() == 0) {
+      // check if we just fetched and ecall instruction
+      if (rtl->rv32i_cpu_t__DOT__inst == ecall_inst) {
+        ecall_pending = true;
+      }
       break;
     }
-  }
-}
 
-bool rv32i_model_t::is_active() const {
-  return active;
+  }
 }
 
 bool rv32i_model_t::load_elf(const char *path) {
