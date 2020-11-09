@@ -992,17 +992,29 @@ static const char *mnemonic(const rv_inst_t &in) {
   }
 }
 
-void rv_print(const struct rv_inst_t &i, char *dst, size_t max) {
+void rv_print(uint32_t pc, const struct rv_inst_t &i, char *dst, size_t max) {
   const char *m = mnemonic(i);
   assert(m);
   switch (i.type) {
   case rv_inst_lui:
   case rv_inst_auipc:
-  case rv_inst_jal:
     snprintf(dst, max, "%s %s %xh", m, regname(i.rd), i.imm);
     break;
+  case rv_inst_jal:
+    if (i.rd == 0) {
+      snprintf(dst, max, "j %xh", i.imm);
+    }
+    else {
+      snprintf(dst, max, "%s %s %xh", m, regname(i.rd), i.imm);
+    }
+    break;
   case rv_inst_jalr:
-    snprintf(dst, max, "%s %s %s %xh", m, regname(i.rd), regname(i.rs1), i.imm);
+    if (i.imm == 0 && i.rd == 0 && i.rs1 == 1) {
+      snprintf(dst, max, "ret");
+    }
+    else {
+      snprintf(dst, max, "%s %s %s %xh", m, regname(i.rd), regname(i.rs1), i.imm);
+    }
     break;
   case rv_inst_beq:
   case rv_inst_bne:
@@ -1028,7 +1040,10 @@ void rv_print(const struct rv_inst_t &i, char *dst, size_t max) {
     snprintf(dst, max, "%s %s %s %d", m, regname(i.rs1), regname(i.rs2), i.imm);
     break;
   case rv_inst_addi:
-    if (i.rs1 == 0) {
+    if (i.imm == 0) {
+      snprintf(dst, max, "mv %s %s", regname(i.rd), regname(i.rs1));
+    }
+    else if (i.rs1 == 0) {
       snprintf(dst, max, "li %s %d", regname(i.rd), i.imm);
     }
     else {

@@ -98,4 +98,4 @@ struct rv_inst_t {
 
 bool rv_decode(uint32_t raw, rv_inst_t &out);
 bool rv_encode(const rv_inst_t &in, uint32_t &out);
-void rv_print(const rv_inst_t &i, char *dst, size_t max);
+void rv_print(uint32_t pc, const rv_inst_t &i, char *dst, size_t max);

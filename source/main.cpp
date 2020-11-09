@@ -255,12 +255,32 @@ void gui_disassemble(rv32i_model_t &model) {
       rv_inst_t dec;
       if (rv_decode(raw, dec)) {
         temp[0] = '\0';
-        rv_print(dec, temp, sizeof(temp));
+        rv_print(addr, dec, temp, sizeof(temp));
         if (addr == pc) {
           ImGui::TextColored(ImVec4{ 0.8f, 0.7f, 0.2f, 1.f }, "%08x:  %08x  %s", addr, raw, temp);
         }
         else {
           ImGui::Text("%08x:  %08x  %s", addr, raw, temp);
+        }
+        // print the destination
+        uint32_t target = 0;
+        switch (dec.type) {
+        case rv_inst_jal:
+        case rv_inst_auipc:
+        case rv_inst_beq:
+        case rv_inst_bne:
+        case rv_inst_blt:
+        case rv_inst_bge:
+        case rv_inst_bltu:
+        case rv_inst_bgeu:
+          target = addr + dec.imm;
+          ImGui::SameLine(350);
+          if (const char *t = model.program().find_symbol(target)) {
+            ImGui::TextDisabled("<%s>", t);
+          }
+          else {
+            ImGui::TextDisabled("<%08xh>", target);
+          }
         }
       }
       else {
@@ -332,7 +352,7 @@ int main(int, char**) {
   model.reset();
 
 #if 1
-  if (!model.load_elf("C:/repos/ctrl_alt_defeat/levels/strcmp/out.elf")) {
+  if (!model.load_elf("C:/repos/ctrl_alt_defeat/levels/overflow/out.elf")) {
 #else
   if (!model.load_hex("C:/repos/ctrl_alt_defeat/rom.hex", MEM_BASE)) {
 #endif
@@ -343,6 +363,7 @@ int main(int, char**) {
   glfwSetErrorCallback(glfw_error_callback);
   if (!glfwInit())
       return 1;
+  glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
   GLFWmonitor* monitor = 0 ? glfwGetPrimaryMonitor() : nullptr;
   GLFWwindow* window = glfwCreateWindow(1024, 768, "Ctrl-Alt-Defeat", monitor, nullptr);
   if (window == nullptr)
