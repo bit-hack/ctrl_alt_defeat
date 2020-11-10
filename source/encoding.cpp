@@ -998,14 +998,14 @@ void rv_print(uint32_t pc, const struct rv_inst_t &i, char *dst, size_t max) {
   switch (i.type) {
   case rv_inst_lui:
   case rv_inst_auipc:
-    snprintf(dst, max, "%s %s %xh", m, regname(i.rd), i.imm);
+    snprintf(dst, max, "%-6s %s %xh", m, regname(i.rd), i.imm);
     break;
   case rv_inst_jal:
     if (i.rd == 0) {
-      snprintf(dst, max, "j %xh", i.imm);
+      snprintf(dst, max, "%-6s %xh", "j", i.imm);
     }
     else {
-      snprintf(dst, max, "%s %s %xh", m, regname(i.rd), i.imm);
+      snprintf(dst, max, "%-6s %s %xh", m, regname(i.rd), i.imm);
     }
     break;
   case rv_inst_jalr:
@@ -1013,7 +1013,7 @@ void rv_print(uint32_t pc, const struct rv_inst_t &i, char *dst, size_t max) {
       snprintf(dst, max, "ret");
     }
     else {
-      snprintf(dst, max, "%s %s %s %xh", m, regname(i.rd), regname(i.rs1), i.imm);
+      snprintf(dst, max, "%-6s %s %s %xh", m, regname(i.rd), regname(i.rs1), i.imm);
     }
     break;
   case rv_inst_beq:
@@ -1022,7 +1022,7 @@ void rv_print(uint32_t pc, const struct rv_inst_t &i, char *dst, size_t max) {
   case rv_inst_bge:
   case rv_inst_bltu:
   case rv_inst_bgeu:
-    snprintf(dst, max, "%s %s %s %xh", m, regname(i.rs1), regname(i.rs2), i.imm);
+    snprintf(dst, max, "%-6s %s %s %xh", m, regname(i.rs1), regname(i.rs2), i.imm);
     break;
   case rv_inst_lb:
   case rv_inst_lbu:
@@ -1031,23 +1031,26 @@ void rv_print(uint32_t pc, const struct rv_inst_t &i, char *dst, size_t max) {
   case rv_inst_lw:
   case rv_inst_lwu:
   case rv_inst_ld:
-    snprintf(dst, max, "%s %s %s %d", m, regname(i.rd), regname(i.rs1), i.imm);
+    snprintf(dst, max, "%-6s %s %s %d", m, regname(i.rd), regname(i.rs1), i.imm);
     break;
   case rv_inst_sb:
   case rv_inst_sh:
   case rv_inst_sw:
   case rv_inst_sd:
-    snprintf(dst, max, "%s %s %s %d", m, regname(i.rs1), regname(i.rs2), i.imm);
+    snprintf(dst, max, "%-6s %s %s %d", m, regname(i.rs1), regname(i.rs2), i.imm);
     break;
   case rv_inst_addi:
-    if (i.imm == 0) {
-      snprintf(dst, max, "mv %s %s", regname(i.rd), regname(i.rs1));
+    if (i.rd == 0) {
+      snprintf(dst, max, "nop");
+    }
+    else if (i.imm == 0) {
+      snprintf(dst, max, "%-6s %s %s", "mv", regname(i.rd), regname(i.rs1));
     }
     else if (i.rs1 == 0) {
-      snprintf(dst, max, "li %s %d", regname(i.rd), i.imm);
+      snprintf(dst, max, "%-6s %s %d", "li", regname(i.rd), i.imm);
     }
     else {
-      snprintf(dst, max, "%s %s %s %d", m, regname(i.rd), regname(i.rs1), i.imm);
+      snprintf(dst, max, "%-6s %s %s %d", m, regname(i.rd), regname(i.rs1), i.imm);
     }
     break;
   case rv_inst_slti:
@@ -1058,7 +1061,7 @@ void rv_print(uint32_t pc, const struct rv_inst_t &i, char *dst, size_t max) {
   case rv_inst_slli:
   case rv_inst_srli:
   case rv_inst_srai:
-    snprintf(dst, max, "%s %s %s %d", m, regname(i.rd), regname(i.rs1), i.imm);
+    snprintf(dst, max, "%-6s %s %s %d", m, regname(i.rd), regname(i.rs1), i.imm);
     break;
   case rv_inst_add:
   case rv_inst_sub:
@@ -1070,43 +1073,43 @@ void rv_print(uint32_t pc, const struct rv_inst_t &i, char *dst, size_t max) {
   case rv_inst_sra:
   case rv_inst_or:
   case rv_inst_and:
-    snprintf(dst, max, "%s %s %s %s", m, regname(i.rd), regname(i.rs1), regname(i.rs2));
+    snprintf(dst, max, "%-6s %s %s %s", m, regname(i.rd), regname(i.rs1), regname(i.rs2));
     break;
   case rv_inst_fence:
-    snprintf(dst, max, "%s %s %s %04x", m, regname(i.rd), regname(i.rs1), i.imm);
+    snprintf(dst, max, "%-6s %s %s %04x", m, regname(i.rd), regname(i.rs1), i.imm);
     break;
   case rv_inst_ecall:
   case rv_inst_ebreak:
-    snprintf(dst, max, "%s", m);
+    snprintf(dst, max, "%-6s", m);
     break;
   case rv_inst_addiw:
   case rv_inst_slliw:
   case rv_inst_srliw:
   case rv_inst_sraiw:
-    snprintf(dst, max, "%s %s %s %d", m, regname(i.rd), regname(i.rs1), i.imm);
+    snprintf(dst, max, "%-6s %s %s %d", m, regname(i.rd), regname(i.rs1), i.imm);
     break;
   case rv_inst_addw:
   case rv_inst_subw:
   case rv_inst_sllw:
   case rv_inst_srlw:
   case rv_inst_sraw:
-    snprintf(dst, max, "%s %s %s %s", m, regname(i.rd), regname(i.rs1), regname(i.rs2));
+    snprintf(dst, max, "%-6s %s %s %s", m, regname(i.rd), regname(i.rs1), regname(i.rs2));
     break;
   case rv_inst_fencei:
-    snprintf(dst, max, "%s %s %s %04x", m, regname(i.rd), regname(i.rs1), i.imm);
+    snprintf(dst, max, "%-6s %s %s %04x", m, regname(i.rd), regname(i.rs1), i.imm);
     break;
   case rv_inst_csrrw:
   case rv_inst_csrrs:
   case rv_inst_csrrc:
-    snprintf(dst, max, "%s %s %s %d", m, regname(i.rd), regname(i.rs1), i.imm);
+    snprintf(dst, max, "%-6s %s %s %d", m, regname(i.rd), regname(i.rs1), i.imm);
     break;
   case rv_inst_csrrwi:
   case rv_inst_csrrsi:
   case rv_inst_csrrci:
-    snprintf(dst, max, "%s %s %d %d", m, regname(i.rd), i.rs1, i.imm);
+    snprintf(dst, max, "%-6s %s %d %d", m, regname(i.rd), i.rs1, i.imm);
     break;
   case rv_inst_mret:
-    snprintf(dst, max, "%s", m);
+    snprintf(dst, max, "%-6s", m);
     break;
   default:
     assert(!"unreachable");

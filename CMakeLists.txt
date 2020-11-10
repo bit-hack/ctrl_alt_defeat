@@ -12,5 +12,6 @@ add_executable(game
   source/main.cpp
   source/encoding.h
   source/encoding.cpp
+  source/dasm_help.h
 )
 target_link_libraries(game rv32i_model imgui glfw OPENGL32)

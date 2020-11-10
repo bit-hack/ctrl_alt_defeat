@@ -1,5 +1,6 @@
 #include <cstdio>
 #include <thread>
+#include <set>
 
 #include <GLFW/glfw3.h>
 
@@ -10,6 +11,7 @@
 #include "../rv32i_model/model.h"
 
 #include "encoding.h"
+#include "dasm_help.h"
 
 
 enum {
@@ -20,7 +22,9 @@ enum {
 
 
 bool will_continue = false;
-bool will_follow = true;
+uint32_t follow_addr = ~0u;
+std::set<uint32_t> breakpoints;
+
 
 static void glfw_error_callback(int error, const char* description) {
   fprintf(stderr, "Glfw Error %d: %s\n", error, description);
@@ -148,7 +152,13 @@ void step_model(rv32i_model_t &model) {
     model.step();
     // if we have just hit an ecall
     if (model.ecall_pending) {
-      will_follow = true;
+      follow_addr = model.get_pc();
+    }
+    // check for hit breakpoint
+    uint32_t pc = model.get_pc();
+    if (breakpoints.count(pc)) {
+      will_continue = false;
+      follow_addr = model.get_pc();
     }
   }
 }
@@ -202,8 +212,8 @@ void gui_cpu(rv32i_model_t &model) {
     ImGuiWindowFlags_NoMove |
     ImGuiWindowFlags_NoCollapse);
   if (ImGui::Button("Step")) {
-    will_follow = true;
     step_model(model);
+    follow_addr = model.get_pc();
   }
   ImGui::SameLine();
   if (ImGui::Button("Run")) {
@@ -212,14 +222,39 @@ void gui_cpu(rv32i_model_t &model) {
   ImGui::SameLine();
   if (ImGui::Button("Halt")) {
     will_continue = false;
-    will_follow = true;
+    follow_addr = model.get_pc();
   }
   ImGui::SameLine();
   if (ImGui::Button("Reset")) {
     model.reset();
-    will_follow = true;
+    follow_addr = model.get_pc();
   }
   ImGui::End();
+}
+
+void dasm_help(uint32_t addr, const rv_inst_t &i) {
+  const char *text = rv_inst_desc(i);
+  const char *info = rv_inst_info(i);
+  if (text) {
+    ImGui::BeginTooltip();
+    ImGui::PushTextWrapPos(ImGui::GetFontSize() * 35.0f);
+    ImGui::TextUnformatted(text);
+    if (info) {
+      ImGui::TextDisabled("%s", info);
+    }
+    ImGui::PopTextWrapPos();
+    ImGui::EndTooltip();
+  }
+}
+
+void breakpoint_toggle(uint32_t addr) {
+  auto itt = breakpoints.find(addr);
+  if (itt != breakpoints.end()) {
+    breakpoints.erase(itt);
+  }
+  else {
+    breakpoints.insert(addr);
+  }
 }
 
 void gui_disassemble(rv32i_model_t &model) {
@@ -233,9 +268,9 @@ void gui_disassemble(rv32i_model_t &model) {
 
   const uint32_t pc = model.get_pc();
 
-  if (will_follow) {
-    ImGui::SetScrollY(((pc - MEM_BASE) / 4) * ImGui::GetTextLineHeight());
-    will_follow = false;
+  if (follow_addr != -1) {
+    ImGui::SetScrollY(((follow_addr - MEM_BASE) / 4) * ImGui::GetTextLineHeight());
+    follow_addr = -1;
   }
 
   char temp[128];
@@ -256,12 +291,30 @@ void gui_disassemble(rv32i_model_t &model) {
       if (rv_decode(raw, dec)) {
         temp[0] = '\0';
         rv_print(addr, dec, temp, sizeof(temp));
+
+        bool is_breakpoint = (breakpoints.count(addr) != 0);
+        if (is_breakpoint) {
+          ImGui::Bullet();
+        }
+        else {
+          ImGui::Dummy(ImVec2{13.f, 0.f});
+        }
+        ImGui::SameLine();
+
         if (addr == pc) {
           ImGui::TextColored(ImVec4{ 0.8f, 0.7f, 0.2f, 1.f }, "%08x:  %08x  %s", addr, raw, temp);
         }
         else {
           ImGui::Text("%08x:  %08x  %s", addr, raw, temp);
         }
+
+        if (ImGui::IsItemHovered()) {
+          dasm_help(addr, dec);
+        }
+        if (ImGui::IsItemClicked()) {
+          breakpoint_toggle(addr);
+        }
+
         // print the destination
         uint32_t target = 0;
         switch (dec.type) {
@@ -281,10 +334,15 @@ void gui_disassemble(rv32i_model_t &model) {
           else {
             ImGui::TextDisabled("<%08xh>", target);
           }
+          if (ImGui::IsItemClicked()) {
+            follow_addr = target;
+          }
         }
       }
       else {
-        ImGui::TextDisabled("%08x:  %08x  %s", addr, raw, "unknown");
+        ImGui::Dummy(ImVec2{ 13.f, 0.f });
+        ImGui::SameLine();
+        ImGui::TextDisabled("%08x:  %08x  %s", addr, raw, "");
       }
 
       if (name) {
@@ -324,6 +382,7 @@ void gui_stack(rv32i_model_t &model) {
       else {
         ImGui::TextDisabled("%08x:  %08x", addr, raw);
       }
+
       // split between hex and ascii viewer
       ImGui::SameLine();
       ImGui::Dummy(ImVec2{ 8.f, 0.f });
@@ -352,7 +411,7 @@ int main(int, char**) {
   model.reset();
 
 #if 1
-  if (!model.load_elf("C:/repos/ctrl_alt_defeat/levels/overflow/out.elf")) {
+  if (!model.load_elf("C:/repos/ctrl_alt_defeat/levels/hardcode/out.elf")) {
 #else
   if (!model.load_hex("C:/repos/ctrl_alt_defeat/rom.hex", MEM_BASE)) {
 #endif
