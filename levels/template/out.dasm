@@ -3,14 +3,16 @@ out.elf:     file format elf32-littleriscv
 
 SYMBOL TABLE:
 00001000 l    d  .text	00000000 .text
-0000104c l    d  .sdata	00000000 .sdata
+00001044 l    d  .rodata.str1.4	00000000 .rodata.str1.4
 00000000 l    d  .riscv.attributes	00000000 .riscv.attributes
 00000000 l    d  .comment	00000000 .comment
 00000000 l    df *ABS*	00000000 main.c
-0000104c g     O .sdata	00000004 x
+0000101c g     F .text	00000014 bad_password
+00001030 g     F .text	00000010 unlock
 00001000 g       .text	00000000 _start
-00001010 g     F .text	0000003c main
-00001fff g       .sdata	00000000 _end
+00001040 g     F .text	00000004 main
+00001fff g       .rodata.str1.4	00000000 _end
+00001010 g     F .text	0000000c get_password
 
 
 
@@ -19,22 +21,26 @@ Disassembly of section .text:
 00001000 <_start>:
     1000:	00000013          	nop
     1004:	00002137          	lui	sp,0x2
-    1008:	ffc10113          	addi	sp,sp,-4 # 1ffc <x+0xfb0>
-    100c:	0040006f          	j	1010 <main>
+    1008:	ffc10113          	addi	sp,sp,-4 # 1ffc <main+0xfbc>
+    100c:	0340006f          	j	1040 <main>
 
-00001010 <main>:
-    1010:	00000617          	auipc	a2,0x0
-    1014:	03c60613          	addi	a2,a2,60 # 104c <x>
-    1018:	000026b7          	lui	a3,0x2
-    101c:	00062783          	lw	a5,0(a2)
-    1020:	00d79713          	slli	a4,a5,0xd
-    1024:	00f74733          	xor	a4,a4,a5
-    1028:	01175793          	srli	a5,a4,0x11
-    102c:	00e7c733          	xor	a4,a5,a4
-    1030:	00571793          	slli	a5,a4,0x5
-    1034:	00e7c7b3          	xor	a5,a5,a4
-    1038:	00000717          	auipc	a4,0x0
-    103c:	00f72a23          	sw	a5,20(a4) # 104c <x>
-    1040:	0ff7f793          	andi	a5,a5,255
-    1044:	fef68fa3          	sb	a5,-1(a3) # 1fff <_end>
-    1048:	fd5ff06f          	j	101c <main+0xc>
+00001010 <get_password>:
+    1010:	00000893          	li	a7,0
+    1014:	00000073          	ecall
+    1018:	00008067          	ret
+
+0000101c <bad_password>:
+    101c:	00000517          	auipc	a0,0x0
+    1020:	02850513          	addi	a0,a0,40 # 1044 <main+0x4>
+    1024:	00100893          	li	a7,1
+    1028:	00000073          	ecall
+    102c:	00008067          	ret
+
+00001030 <unlock>:
+    1030:	00000513          	li	a0,0
+    1034:	00200893          	li	a7,2
+    1038:	00000073          	ecall
+    103c:	00008067          	ret
+
+00001040 <main>:
+    1040:	0000006f          	j	1040 <main>

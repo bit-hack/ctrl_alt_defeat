@@ -155,6 +155,15 @@ struct memory_t {
     }
   }
 
+  void clear() {
+    for (chunk_t *&c : chunks) {
+      if (c) {
+        delete c;
+        c = nullptr;
+      }
+    }
+  }
+
 protected:
   static const uint32_t mask_lo = 0xffff;
   static const uint32_t mask_hi = ~mask_lo;

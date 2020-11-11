@@ -13,8 +13,8 @@ $TOOLCHAIN/bin/riscv64-unknown-elf-gcc-8.3.0.exe \
 -fno-reorder-functions \
 -o $BASE.elf \
 -O3 \
--T link.ld \
-entry.S \
+-T ../link.ld \
+../entry.S \
 main.c
 
 $TOOLCHAIN/bin/riscv64-unknown-elf-objdump.exe \

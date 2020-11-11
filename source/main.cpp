@@ -24,6 +24,10 @@ enum {
 bool will_continue = false;
 uint32_t follow_addr = ~0u;
 std::set<uint32_t> breakpoints;
+std::string cpu_status;
+bool is_hex_input;
+uint32_t highlight_addr = ~0u;
+char note_buffer[1024];
 
 
 static void glfw_error_callback(int error, const char* description) {
@@ -159,7 +163,46 @@ void step_model(rv32i_model_t &model) {
     if (breakpoints.count(pc)) {
       will_continue = false;
       follow_addr = model.get_pc();
+      cpu_status = "Hit Breakpoint";
     }
+  }
+}
+
+static uint8_t hex_val(uint8_t i) {
+  if (i >= '0' && i <= '9') return (i - '0');
+  if (i >= 'a' && i <= 'f') return (i - 'a') + 10;
+  if (i >= 'A' && i <= 'F') return (i - 'A') + 10;
+  return 12;  // 'c'
+}
+
+void user_input(rv32i_model_t &model) {
+
+  cpu_status = "Waiting for user input";
+
+  const uint32_t a0 = model.get_reg(rv_reg_a0);
+  const uint32_t a7 = model.get_reg(rv_reg_a7);
+
+  const size_t max_len = sizeof(sys_tmp);
+  sys_tmp[max_len - 1] = '\0';
+  const size_t len = strlen(sys_tmp);
+
+  ImGui::InputText("Password", sys_tmp, max_len - 1);
+  ImGui::SameLine();
+  ImGui::Checkbox("Hex", &is_hex_input);
+
+  if (ImGui::Button("ok")) {
+    if (!is_hex_input) {
+      model.memory().write(a0, (const uint8_t *)sys_tmp, (uint32_t)len);
+    }
+    else {
+      for (int i = 0; i < len; i += 2) {
+        const uint8_t val = (hex_val(sys_tmp[i + 0]) << 4) |
+                             hex_val(sys_tmp[i + 1]);
+        model.memory().write(a0 + i/2, &val, 1);
+      }
+    }
+    sys_tmp[0] = '\0';
+    model.ecall_pending = false;
   }
 }
 
@@ -176,13 +219,18 @@ void gui_ecall(rv32i_model_t &model) {
   ImGui::SetNextWindowPos(ImVec2{ 512 - 16 * 13, (768 / 2) - 40.f });
   ImGui::SetNextWindowSize(ImVec2{ 16 * 26, 16 * 5 });
   ImGui::Begin("System Call", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove);
+
+  ImGui::SetNextWindowPos(ImVec2{ 0.f, 0.f });
+  ImGui::SetNextWindowSize(ImVec2{ 1027, 768 });
+  ImGui::SetNextWindowBgAlpha(0.3f);
+  ImGui::Begin("DimBackground", nullptr,
+    ImGuiWindowFlags_NoTitleBar |
+    ImGuiWindowFlags_NoMove |
+    ImGuiWindowFlags_NoResize);
+  ImGui::End();
+
   if (a7 == 0) {
-    ImGui::InputText("Password", sys_tmp, sizeof(sys_tmp));
-    if (ImGui::Button("ok")) {
-      model.ecall_pending = false;
-      model.memory().write(a0, (const uint8_t *)sys_tmp, (uint32_t)strlen(sys_tmp));
-      sys_tmp[0] = '\0';
-    }
+    user_input(model);
   }
   if (a7 == 1) {
     model.memory().read_str((uint8_t*)sys_tmp, a0, sizeof(sys_tmp));
@@ -191,6 +239,7 @@ void gui_ecall(rv32i_model_t &model) {
       model.ecall_pending = false;
       sys_tmp[0] = '\0';
     }
+    cpu_status = "Showing user message";
   }
   if (a7 == 2) {
     ImGui::Text("Success: Device unlocked");
@@ -198,6 +247,7 @@ void gui_ecall(rv32i_model_t &model) {
       model.ecall_pending = false;
       sys_tmp[0] = '\0';
     }
+    cpu_status = "Unlocking device";
   }
   ImGui::End();
 }
@@ -205,12 +255,17 @@ void gui_ecall(rv32i_model_t &model) {
 void gui_cpu(rv32i_model_t &model) {
 
   ImGui::SetNextWindowPos(ImVec2{ 16 * 48, 16 });
-  ImGui::SetNextWindowSize(ImVec2{ 16 * 15, 16 * 4 });
+  ImGui::SetNextWindowSize(ImVec2{ 16 * 15, 16 * 6 });
+
+  if (!will_continue && !model.ecall_pending) {
+    cpu_status = "Halted";
+  }
 
   ImGui::Begin("CPU", nullptr,
     ImGuiWindowFlags_NoResize |
     ImGuiWindowFlags_NoMove |
     ImGuiWindowFlags_NoCollapse);
+
   if (ImGui::Button("Step")) {
     step_model(model);
     follow_addr = model.get_pc();
@@ -218,17 +273,30 @@ void gui_cpu(rv32i_model_t &model) {
   ImGui::SameLine();
   if (ImGui::Button("Run")) {
     will_continue = true;
+    cpu_status = "Running";
   }
   ImGui::SameLine();
   if (ImGui::Button("Halt")) {
     will_continue = false;
     follow_addr = model.get_pc();
   }
+#if 0
   ImGui::SameLine();
   if (ImGui::Button("Reset")) {
+    will_continue = false;
     model.reset();
     follow_addr = model.get_pc();
   }
+#endif
+  ImGui::SameLine();
+  if (ImGui::Button("Reset")) {
+    will_continue = false;
+    model.memory().reset();
+    model.program().upload(model.memory());
+    follow_addr = model.get_pc();
+    model.reset();
+  }
+  ImGui::Text("Status: %s", cpu_status.c_str());
   ImGui::End();
 }
 
@@ -266,6 +334,8 @@ void gui_disassemble(rv32i_model_t &model) {
     ImGuiWindowFlags_NoMove |
     ImGuiWindowFlags_NoCollapse);
 
+  uint32_t next_highlight = -1;
+
   const uint32_t pc = model.get_pc();
 
   if (follow_addr != -1) {
@@ -301,7 +371,7 @@ void gui_disassemble(rv32i_model_t &model) {
         }
         ImGui::SameLine();
 
-        if (addr == pc) {
+        if (addr == pc || addr == highlight_addr) {
           ImGui::TextColored(ImVec4{ 0.8f, 0.7f, 0.2f, 1.f }, "%08x:  %08x  %s", addr, raw, temp);
         }
         else {
@@ -337,6 +407,9 @@ void gui_disassemble(rv32i_model_t &model) {
           if (ImGui::IsItemClicked()) {
             follow_addr = target;
           }
+          if (ImGui::IsItemHovered()) {
+            next_highlight = target;
+          }
         }
       }
       else {
@@ -353,11 +426,26 @@ void gui_disassemble(rv32i_model_t &model) {
   }
 
   ImGui::End();
+  highlight_addr = next_highlight;
+}
+
+void gui_notes(rv32i_model_t &model) {
+  ImGui::SetNextWindowPos(ImVec2{ 16 * 48, 16 * 33 });
+  ImGui::SetNextWindowSize(ImVec2{ 16 * 15, 16 * 14 });
+  ImGui::Begin("NOTES", nullptr,
+    ImGuiWindowFlags_HorizontalScrollbar |
+    ImGuiWindowFlags_NoResize |
+    ImGuiWindowFlags_NoMove |
+    ImGuiWindowFlags_NoCollapse);
+
+  ImGui::InputTextMultiline("", note_buffer, sizeof(note_buffer), ImVec2{ 16 * 14 - 2, 16 * 12 - 4 });
+
+  ImGui::End();
 }
 
 void gui_stack(rv32i_model_t &model) {
-  ImGui::SetNextWindowPos(ImVec2{ 16 * 48, 16 * 6 });
-  ImGui::SetNextWindowSize(ImVec2{ 16 * 15, 16 * 34 });
+  ImGui::SetNextWindowPos(ImVec2{ 16 * 48, 16 * 8 });
+  ImGui::SetNextWindowSize(ImVec2{ 16 * 15, 16 * 24 });
   ImGui::Begin("STACK", nullptr,
     ImGuiWindowFlags_HorizontalScrollbar |
     ImGuiWindowFlags_NoResize |
@@ -411,7 +499,7 @@ int main(int, char**) {
   model.reset();
 
 #if 1
-  if (!model.load_elf("C:/repos/ctrl_alt_defeat/levels/hardcode/out.elf")) {
+  if (!model.load_elf("C:/repos/ctrl_alt_defeat/levels/overflow/out.elf")) {
 #else
   if (!model.load_hex("C:/repos/ctrl_alt_defeat/rom.hex", MEM_BASE)) {
 #endif
@@ -456,18 +544,19 @@ int main(int, char**) {
     }
 
     gui_cpu(model);
+    gui_notes(model);
     gui_registers(model);
     gui_memory(model);
     gui_stack(model);
-    gui_ecall(model);
     gui_disassemble(model);
+    gui_ecall(model);
 
     // Rendering
     ImGui::Render();
     int display_w, display_h;
     glfwGetFramebufferSize(window, &display_w, &display_h);
     glViewport(0, 0, display_w, display_h);
-    glClearColor(.3f, .3f, .3f, 1.f);
+    glClearColor(.05f, .1f, .15f, 1.f);
     glClear(GL_COLOR_BUFFER_BIT);
     ImGui_ImplOpenGL2_RenderDrawData(ImGui::GetDrawData());
     glfwMakeContextCurrent(window);
