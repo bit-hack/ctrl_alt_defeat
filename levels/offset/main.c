@@ -4,7 +4,13 @@
 #include "../common.h"
 
 bool compare(const char *input, int max) {
-  return false;
+  const char password[] = { 'm'-'a', 'o'-'a', 'n'-'a', 'k'-'a', 'e'-'a', 'y'-'a' };
+  for (int i=0; i<6; ++i) {
+    if (input[i] != (password[i]+'a')) {
+      return false;
+    }
+  }
+  return true;
 }
 
 void NO_INLINE loop() {

@@ -3,21 +3,21 @@ out.elf:     file format elf32-littleriscv
 
 SYMBOL TABLE:
 00001000 l    d  .text	00000000 .text
-000010dc l    d  .rodata.str1.4	00000000 .rodata.str1.4
-000010ec l    d  .sdata	00000000 .sdata
-000010f4 l    d  .bss	00000000 .bss
+000010c8 l    d  .rodata.str1.4	00000000 .rodata.str1.4
+000010d8 l    d  .sdata	00000000 .sdata
+000010dc l    d  .bss	00000000 .bss
 00000000 l    d  .riscv.attributes	00000000 .riscv.attributes
 00000000 l    d  .comment	00000000 .comment
 00000000 l    df *ABS*	00000000 main.c
-000010f4 g     O .bss	00000008 password
-000010ec g     O .sdata	00000008 expected
-0000101c g     F .text	00000014 bad_password
-00001030 g     F .text	00000010 unlock
-00001040 g     F .text	00000040 check_password
+000010dc g     O .bss	00000008 password
+000010d8 g     O .sdata	00000004 expect
+00001028 g     F .text	00000014 bad_password
+0000103c g     F .text	00000010 unlock
+0000104c g     F .text	00000040 check_password
 00001000 g       .text	00000000 _start
-00001080 g     F .text	0000005c main
+0000108c g     F .text	0000003c main
 00001fff g       .bss	00000000 _end
-00001010 g     F .text	0000000c get_password
+00001010 g     F .text	00000018 get_password
 
 
 
@@ -26,66 +26,61 @@ Disassembly of section .text:
 00001000 <_start>:
     1000:	00000013          	nop
     1004:	00002137          	lui	sp,0x2
-    1008:	ffc10113          	addi	sp,sp,-4 # 1ffc <password+0xf08>
-    100c:	0740006f          	j	1080 <main>
+    1008:	ffc10113          	addi	sp,sp,-4 # 1ffc <password+0xf20>
+    100c:	0800006f          	j	108c <main>
 
 00001010 <get_password>:
-    1010:	00000893          	li	a7,0
-    1014:	00000073          	ecall
-    1018:	00008067          	ret
+    1010:	ff010113          	addi	sp,sp,-16
+    1014:	00c10593          	addi	a1,sp,12
+    1018:	00000893          	li	a7,0
+    101c:	00000073          	ecall
+    1020:	01010113          	addi	sp,sp,16
+    1024:	00008067          	ret
 
-0000101c <bad_password>:
-    101c:	00000517          	auipc	a0,0x0
-    1020:	0c050513          	addi	a0,a0,192 # 10dc <main+0x5c>
-    1024:	00100893          	li	a7,1
-    1028:	00000073          	ecall
-    102c:	00008067          	ret
+00001028 <bad_password>:
+    1028:	00000517          	auipc	a0,0x0
+    102c:	0a050513          	addi	a0,a0,160 # 10c8 <main+0x3c>
+    1030:	00100893          	li	a7,1
+    1034:	00000073          	ecall
+    1038:	00008067          	ret
 
-00001030 <unlock>:
-    1030:	00000513          	li	a0,0
-    1034:	00200893          	li	a7,2
-    1038:	00000073          	ecall
-    103c:	00008067          	ret
+0000103c <unlock>:
+    103c:	00000513          	li	a0,0
+    1040:	00200893          	li	a7,2
+    1044:	00000073          	ecall
+    1048:	00008067          	ret
 
-00001040 <check_password>:
-    1040:	00054783          	lbu	a5,0(a0)
-    1044:	0ff7f793          	andi	a5,a5,255
-    1048:	00079e63          	bnez	a5,1064 <check_password+0x24>
-    104c:	02c0006f          	j	1078 <check_password+0x38>
-    1050:	00150513          	addi	a0,a0,1
-    1054:	00054783          	lbu	a5,0(a0)
-    1058:	00158593          	addi	a1,a1,1
-    105c:	0ff7f793          	andi	a5,a5,255
-    1060:	00078c63          	beqz	a5,1078 <check_password+0x38>
-    1064:	00054783          	lbu	a5,0(a0)
-    1068:	0005c703          	lbu	a4,0(a1)
-    106c:	fef702e3          	beq	a4,a5,1050 <check_password+0x10>
-    1070:	00000513          	li	a0,0
-    1074:	00008067          	ret
-    1078:	00100513          	li	a0,1
-    107c:	00008067          	ret
+0000104c <check_password>:
+    104c:	00000713          	li	a4,0
+    1050:	00000793          	li	a5,0
+    1054:	00800613          	li	a2,8
+    1058:	00e506b3          	add	a3,a0,a4
+    105c:	0006c683          	lbu	a3,0(a3)
+    1060:	00479593          	slli	a1,a5,0x4
+    1064:	00170713          	addi	a4,a4,1
+    1068:	00b686b3          	add	a3,a3,a1
+    106c:	00d7c7b3          	xor	a5,a5,a3
+    1070:	fec714e3          	bne	a4,a2,1058 <check_password+0xc>
+    1074:	00000717          	auipc	a4,0x0
+    1078:	06470713          	addi	a4,a4,100 # 10d8 <expect>
+    107c:	00072503          	lw	a0,0(a4)
+    1080:	40f50533          	sub	a0,a0,a5
+    1084:	00153513          	seqz	a0,a0
+    1088:	00008067          	ret
 
-00001080 <main>:
-    1080:	ff010113          	addi	sp,sp,-16
-    1084:	00812423          	sw	s0,8(sp)
-    1088:	00912223          	sw	s1,4(sp)
-    108c:	00112623          	sw	ra,12(sp)
-    1090:	00000417          	auipc	s0,0x0
-    1094:	06440413          	addi	s0,s0,100 # 10f4 <password>
-    1098:	00000497          	auipc	s1,0x0
-    109c:	05448493          	addi	s1,s1,84 # 10ec <expected>
+0000108c <main>:
+    108c:	ff010113          	addi	sp,sp,-16
+    1090:	00812423          	sw	s0,8(sp)
+    1094:	00112623          	sw	ra,12(sp)
+    1098:	00000417          	auipc	s0,0x0
+    109c:	04440413          	addi	s0,s0,68 # 10dc <password>
     10a0:	00040513          	mv	a0,s0
-    10a4:	f6dff0ef          	jal	ra,1010 <get_password>
-    10a8:	00048593          	mv	a1,s1
+    10a4:	00800593          	li	a1,8
+    10a8:	f69ff0ef          	jal	ra,1010 <get_password>
     10ac:	00040513          	mv	a0,s0
-    10b0:	f91ff0ef          	jal	ra,1040 <check_password>
-    10b4:	02050063          	beqz	a0,10d4 <main+0x54>
-    10b8:	f79ff0ef          	jal	ra,1030 <unlock>
-    10bc:	00040513          	mv	a0,s0
-    10c0:	f51ff0ef          	jal	ra,1010 <get_password>
-    10c4:	00048593          	mv	a1,s1
-    10c8:	00040513          	mv	a0,s0
-    10cc:	f75ff0ef          	jal	ra,1040 <check_password>
-    10d0:	fe0514e3          	bnez	a0,10b8 <main+0x38>
-    10d4:	f49ff0ef          	jal	ra,101c <bad_password>
-    10d8:	fc9ff06f          	j	10a0 <main+0x20>
+    10b0:	f9dff0ef          	jal	ra,104c <check_password>
+    10b4:	00050663          	beqz	a0,10c0 <main+0x34>
+    10b8:	f85ff0ef          	jal	ra,103c <unlock>
+    10bc:	fe5ff06f          	j	10a0 <main+0x14>
+    10c0:	f69ff0ef          	jal	ra,1028 <bad_password>
+    10c4:	fddff06f          	j	10a0 <main+0x14>

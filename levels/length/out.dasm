@@ -1,0 +1,72 @@
+
+out.elf:     file format elf32-littleriscv
+
+SYMBOL TABLE:
+00001000 l    d  .text	00000000 .text
+000010a0 l    d  .rodata.str1.4	00000000 .rodata.str1.4
+00000000 l    d  .riscv.attributes	00000000 .riscv.attributes
+00000000 l    d  .comment	00000000 .comment
+00000000 l    df *ABS*	00000000 main.c
+00001028 g     F .text	00000014 bad_password
+0000103c g     F .text	00000010 unlock
+00001000 g       .text	00000000 _start
+00001070 g     F .text	00000030 main
+0000104c g     F .text	00000024 compare
+00001fff g       .rodata.str1.4	00000000 _end
+00001010 g     F .text	00000018 get_password
+
+
+
+Disassembly of section .text:
+
+00001000 <_start>:
+    1000:	00000013          	nop
+    1004:	00002137          	lui	sp,0x2
+    1008:	ffc10113          	addi	sp,sp,-4 # 1ffc <main+0xf8c>
+    100c:	0640006f          	j	1070 <main>
+
+00001010 <get_password>:
+    1010:	ff010113          	addi	sp,sp,-16
+    1014:	00c10593          	addi	a1,sp,12
+    1018:	00000893          	li	a7,0
+    101c:	00000073          	ecall
+    1020:	01010113          	addi	sp,sp,16
+    1024:	00008067          	ret
+
+00001028 <bad_password>:
+    1028:	00000517          	auipc	a0,0x0
+    102c:	07850513          	addi	a0,a0,120 # 10a0 <main+0x30>
+    1030:	00100893          	li	a7,1
+    1034:	00000073          	ecall
+    1038:	00008067          	ret
+
+0000103c <unlock>:
+    103c:	00000513          	li	a0,0
+    1040:	00200893          	li	a7,2
+    1044:	00000073          	ecall
+    1048:	00008067          	ret
+
+0000104c <compare>:
+    104c:	00000793          	li	a5,0
+    1050:	00f50733          	add	a4,a0,a5
+    1054:	00074703          	lbu	a4,0(a4)
+    1058:	00071863          	bnez	a4,1068 <compare+0x1c>
+    105c:	ff978513          	addi	a0,a5,-7
+    1060:	00153513          	seqz	a0,a0
+    1064:	00008067          	ret
+    1068:	00178793          	addi	a5,a5,1
+    106c:	fe5ff06f          	j	1050 <compare+0x4>
+
+00001070 <main>:
+    1070:	fe010113          	addi	sp,sp,-32
+    1074:	00112e23          	sw	ra,28(sp)
+    1078:	00010513          	mv	a0,sp
+    107c:	01000593          	li	a1,16
+    1080:	f91ff0ef          	jal	ra,1010 <get_password>
+    1084:	00010513          	mv	a0,sp
+    1088:	fc5ff0ef          	jal	ra,104c <compare>
+    108c:	00050663          	beqz	a0,1098 <main+0x28>
+    1090:	fadff0ef          	jal	ra,103c <unlock>
+    1094:	fe5ff06f          	j	1078 <main+0x8>
+    1098:	f91ff0ef          	jal	ra,1028 <bad_password>
+    109c:	fddff06f          	j	1078 <main+0x8>

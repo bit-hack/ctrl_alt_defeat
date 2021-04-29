@@ -12,6 +12,7 @@
 
 #include "encoding.h"
 #include "dasm_help.h"
+#include "levels.h"
 
 
 enum {
@@ -20,7 +21,12 @@ enum {
   MEM_STACK = 0x1fff,
 };
 
+enum {
+  state_next_level = 0,
+  state_playing,
+};
 
+int state = state_playing;
 bool will_continue = false;
 uint32_t follow_addr = ~0u;
 std::set<uint32_t> breakpoints;
@@ -28,7 +34,15 @@ std::string cpu_status;
 bool is_hex_input;
 uint32_t highlight_addr = ~0u;
 char note_buffer[1024];
+bool briefing_open = true;
+uint32_t level = 0;
+rv32i_model_t model;
+const char *brief = "";
+static char sys_tmp[128];
 
+// background stuff
+float delta = 0.f;
+const float pi = 3.14159265359f;
 
 static void glfw_error_callback(int error, const char* description) {
   fprintf(stderr, "Glfw Error %d: %s\n", error, description);
@@ -50,7 +64,7 @@ static const char *regname(uint32_t i) {
   return name[i & 0x1f];
 }
 
-void gui_registers(rv32i_model_t &model) {
+void gui_registers() {
 
   ImGui::SetNextWindowPos(ImVec2{ 16, 16 });
   ImGui::SetNextWindowSize(ImVec2{ 16 * 9, 16 * 39 });
@@ -87,7 +101,7 @@ void gui_registers(rv32i_model_t &model) {
   ImGui::End();
 }
 
-void gui_memory(rv32i_model_t &model) {
+void gui_memory() {
 
   ImGui::SetNextWindowPos(ImVec2{ 16 * 11, 16 });
   ImGui::SetNextWindowSize(ImVec2{ 16 * 36, 16 * 18 });
@@ -149,9 +163,7 @@ void gui_memory(rv32i_model_t &model) {
   ImGui::End();
 }
 
-static char sys_tmp[128];
-
-void step_model(rv32i_model_t &model) {
+void step_model() {
   if (!model.ecall_pending) {
     model.step();
     // if we have just hit an ecall
@@ -175,7 +187,40 @@ static uint8_t hex_val(uint8_t i) {
   return 12;  // 'c'
 }
 
-void user_input(rv32i_model_t &model) {
+void dim_background() {
+  ImGui::SetNextWindowPos(ImVec2{ 0.f, 0.f });
+  ImGui::SetNextWindowSize(ImVec2{ 1027, 768 });
+  ImGui::SetNextWindowBgAlpha(0.3f);
+  ImGui::Begin("DimBackground", nullptr,
+    ImGuiWindowFlags_NoTitleBar |
+    ImGuiWindowFlags_NoMove |
+    ImGuiWindowFlags_NoResize);
+  ImGui::End();
+}
+
+void gui_briefing() {
+  if (briefing_open) {
+    dim_background();
+
+    const size_t len = strlen(brief);
+
+    ImGui::SetNextWindowFocus();
+    ImGui::SetNextWindowPos(ImVec2{ 16 * 12, 16 * 4 });
+    ImGui::SetNextWindowSize(ImVec2{ 16 * 40, 16 * 40 });
+    ImGui::Begin("BRIEFING", &briefing_open, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
+
+    ImVec2 txt_size = ImVec2(16 * 39, 16 * 36);
+    ImGui::InputTextMultiline("", (char*)brief, len, txt_size, ImGuiInputTextFlags_ReadOnly);
+
+    if (ImGui::Button("Begin")) {
+      briefing_open = false;
+    }
+
+    ImGui::End();
+  }
+}
+
+void user_input() {
 
   cpu_status = "Waiting for user input";
 
@@ -206,31 +251,25 @@ void user_input(rv32i_model_t &model) {
   }
 }
 
-void gui_ecall(rv32i_model_t &model) {
+void gui_ecall() {
   if (!model.ecall_pending) {
     return;
   }
 
   will_continue = false;
-
   uint32_t a0 = model.get_reg(rv_reg_a0);
   uint32_t a7 = model.get_reg(rv_reg_a7);
+
+  dim_background();
+
   ImGui::SetNextWindowFocus();
   ImGui::SetNextWindowPos(ImVec2{ 512 - 16 * 13, (768 / 2) - 40.f });
   ImGui::SetNextWindowSize(ImVec2{ 16 * 26, 16 * 5 });
   ImGui::Begin("System Call", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove);
 
-  ImGui::SetNextWindowPos(ImVec2{ 0.f, 0.f });
-  ImGui::SetNextWindowSize(ImVec2{ 1027, 768 });
-  ImGui::SetNextWindowBgAlpha(0.3f);
-  ImGui::Begin("DimBackground", nullptr,
-    ImGuiWindowFlags_NoTitleBar |
-    ImGuiWindowFlags_NoMove |
-    ImGuiWindowFlags_NoResize);
-  ImGui::End();
 
   if (a7 == 0) {
-    user_input(model);
+    user_input();
   }
   if (a7 == 1) {
     model.memory().read_str((uint8_t*)sys_tmp, a0, sizeof(sys_tmp));
@@ -246,13 +285,14 @@ void gui_ecall(rv32i_model_t &model) {
     if (ImGui::Button("ok")) {
       model.ecall_pending = false;
       sys_tmp[0] = '\0';
+      state = state_next_level;
     }
     cpu_status = "Unlocking device";
   }
   ImGui::End();
 }
 
-void gui_cpu(rv32i_model_t &model) {
+void gui_cpu() {
 
   ImGui::SetNextWindowPos(ImVec2{ 16 * 48, 16 });
   ImGui::SetNextWindowSize(ImVec2{ 16 * 15, 16 * 6 });
@@ -267,7 +307,7 @@ void gui_cpu(rv32i_model_t &model) {
     ImGuiWindowFlags_NoCollapse);
 
   if (ImGui::Button("Step")) {
-    step_model(model);
+    step_model();
     follow_addr = model.get_pc();
   }
   ImGui::SameLine();
@@ -291,7 +331,7 @@ void gui_cpu(rv32i_model_t &model) {
   ImGui::SameLine();
   if (ImGui::Button("Reset")) {
     will_continue = false;
-    model.memory().reset();
+    model.memory().clear();
     model.program().upload(model.memory());
     follow_addr = model.get_pc();
     model.reset();
@@ -325,7 +365,7 @@ void breakpoint_toggle(uint32_t addr) {
   }
 }
 
-void gui_disassemble(rv32i_model_t &model) {
+void gui_disassemble() {
   ImGui::SetNextWindowPos(ImVec2{ 16 * 11, 16 * 20 });
   ImGui::SetNextWindowSize(ImVec2{ 16 * 36, 16 * 20 });
   ImGui::Begin("DISASSEMBLY", nullptr,
@@ -429,7 +469,7 @@ void gui_disassemble(rv32i_model_t &model) {
   highlight_addr = next_highlight;
 }
 
-void gui_notes(rv32i_model_t &model) {
+void gui_notes() {
   ImGui::SetNextWindowPos(ImVec2{ 16 * 48, 16 * 33 });
   ImGui::SetNextWindowSize(ImVec2{ 16 * 15, 16 * 14 });
   ImGui::Begin("NOTES", nullptr,
@@ -443,7 +483,7 @@ void gui_notes(rv32i_model_t &model) {
   ImGui::End();
 }
 
-void gui_stack(rv32i_model_t &model) {
+void gui_stack() {
   ImGui::SetNextWindowPos(ImVec2{ 16 * 48, 16 * 8 });
   ImGui::SetNextWindowSize(ImVec2{ 16 * 15, 16 * 24 });
   ImGui::Begin("STACK", nullptr,
@@ -494,15 +534,51 @@ void gui_stack(rv32i_model_t &model) {
   ImGui::End();
 }
 
-int main(int, char**) {
-  rv32i_model_t model;
-  model.reset();
+void gui_background() {
 
-#if 1
-  if (!model.load_elf("C:/repos/ctrl_alt_defeat/levels/overflow/out.elf")) {
-#else
-  if (!model.load_hex("C:/repos/ctrl_alt_defeat/rom.hex", MEM_BASE)) {
-#endif
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+  glBegin(GL_QUADS);
+  for (float y = -2.f; y < 2.f; y += 0.03f) {
+    for (float x = -1.5; x < 1.5f; x += 0.03f) {
+
+      float yi = cosf(y * pi);
+
+      glColor4f(yi*.2f*yi, yi*.3f, yi*.4f, yi);
+
+      const float ty = sinf(x + delta + y * 2.f);
+      const float tx = sinf(y * 2.f);
+      const float sz = 0.025f - yi * 0.02f;
+      const float px = x + tx * 0.1f;
+      const float py = y + ty * 0.2f;
+
+      glVertex2f(px-sz, py-sz);
+      glVertex2f(px+sz, py-sz);
+      glVertex2f(px+sz, py+sz);
+      glVertex2f(px-sz, py+sz);
+    }
+  }
+  glEnd();
+  delta += 0.002f;
+}
+
+bool load_level(int32_t index) {
+  if (!model.load_elf(levels[index].elf_path)) {
+    return false;
+  }
+  brief = levels[index].brief;
+  model.reset();
+  briefing_open = true;
+  state = state_playing;
+  will_continue = false;
+  breakpoints.clear();
+  return true;
+}
+
+int main(int, char**) {
+
+  if (!load_level(level)) {
     return 1;
   }
 
@@ -539,25 +615,33 @@ int main(int, char**) {
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
-    if (will_continue) {
-      step_model(model);
+    if (state == state_next_level) {
+      load_level(++level);
     }
 
-    gui_cpu(model);
-    gui_notes(model);
-    gui_registers(model);
-    gui_memory(model);
-    gui_stack(model);
-    gui_disassemble(model);
-    gui_ecall(model);
+    if (will_continue) {
+      step_model();
+    }
+
+    gui_cpu();
+    gui_notes();
+    gui_registers();
+    gui_memory();
+    gui_stack();
+    gui_disassemble();
+    gui_ecall();
+    gui_briefing();
 
     // Rendering
     ImGui::Render();
     int display_w, display_h;
     glfwGetFramebufferSize(window, &display_w, &display_h);
     glViewport(0, 0, display_w, display_h);
-    glClearColor(.05f, .1f, .15f, 1.f);
+    glClearColor(.005f, .01f, .015f, 1.f);
     glClear(GL_COLOR_BUFFER_BIT);
+
+    gui_background();
+
     ImGui_ImplOpenGL2_RenderDrawData(ImGui::GetDrawData());
     glfwMakeContextCurrent(window);
     glfwSwapBuffers(window);

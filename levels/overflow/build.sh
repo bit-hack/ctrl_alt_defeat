@@ -12,7 +12,7 @@ $TOOLCHAIN/bin/riscv64-unknown-elf-gcc-8.3.0.exe \
 -mabi=ilp32 \
 -fno-reorder-functions \
 -o $BASE.elf \
--O2 \
+-Os \
 -T ../link.ld \
 ../entry.S \
 main.c

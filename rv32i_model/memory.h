@@ -15,16 +15,6 @@ struct memory_t {
     chunks.fill(nullptr);
   }
 
-  // clear all allocated memory
-  void reset() {
-    for (chunk_t * &c : chunks) {
-      if (c) {
-        delete c;
-      }
-      c = nullptr;
-    }
-  }
-
   // read a c-string from memory
   uint32_t read_str(uint8_t *dst, uint32_t addr, uint32_t max) const {
     uint32_t len = 0;

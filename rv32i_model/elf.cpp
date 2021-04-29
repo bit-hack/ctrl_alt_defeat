@@ -37,6 +37,7 @@ bool elf_t::upload(memory_t &mem) const {
 }
 
 bool elf_t::load(const char *path) {
+  symbols.clear();
   // free previous memory
   if (raw_data) {
     release();

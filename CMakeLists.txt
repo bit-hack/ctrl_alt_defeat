@@ -9,6 +9,7 @@ add_subdirectory(libs/imgui)
 add_subdirectory(rv32i_model)
 
 add_executable(game
+  source/levels.h
   source/main.cpp
   source/encoding.h
   source/encoding.cpp

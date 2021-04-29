@@ -56,7 +56,6 @@ struct rv32i_model_t {
   void step();
 
   bool load_elf(const char *path);
-
   bool load_hex(const char *path, uint32_t base);
 
   memory_t &memory() {

@@ -3,24 +3,25 @@
 
 #include "../common.h"
 
-char temp[16] = "unknown";
-char ref[] = "Rosebud";
+volatile char password[8];
+char expected[8] = "octopii";
 
-bool NO_INLINE compare(char *a, char *b) {
-  for (;; ++a, ++b) {
+bool NO_INLINE check_password(volatile const char *a,
+                              const char *b) {
+  for (;*a; ++a, ++b) {
     if (*a != *b) {
       return false;
     }
-    if (*a == '\0') {
-      return true;
-    }
   }
+  return true;
 }
 
 int main() {
+  bool passed = false;
   while (true) {
-    get_password(temp);
-    if (compare(temp, ref)) {
+    get_password(password);
+    passed = check_password(password, expected) ? 1 : 0;
+    if (passed) {
       unlock();
     }
     else {

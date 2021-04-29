@@ -333,7 +333,7 @@ static bool dec_op(uint32_t raw, rv_inst_t &out) {
       return false;
     }
     // must be ADD/SUB or SRL/SRA
-    if (funct3 != 0b000 || funct3 != 0b101) {
+    if (funct3 != 0b000 && funct3 != 0b101) {
       return false;
     }
   }
@@ -407,7 +407,7 @@ static bool dec_op_32(uint32_t raw, rv_inst_t &out) {
       return false;
     }
     // must be SRLW/SRAW or ADDW/SUBW
-    if (funct3 != 0b101 || funct3 != 0b000) {
+    if (funct3 != 0b101 && funct3 != 0b000) {
       return false;
     }
   }

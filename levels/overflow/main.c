@@ -4,23 +4,21 @@
 #include "../common.h"
 
 volatile char password[8];
-char expected[8] = "octopii";
+uint32_t expect = 0xdfca312d;  // "testme12"
 
-bool NO_INLINE check_password(volatile const char *a,
-                              const char *b) {
-  for (;*a; ++a, ++b) {
-    if (*a != *b) {
-      return false;
-    }
+bool NO_INLINE check_password(const char *b) {
+  uint32_t hash = 0;
+  for (int i=0; i<8; ++i) {
+    hash ^= (hash << 4) + b[i];
   }
-  return true;
+  return hash == expect;
 }
 
 int main() {
   bool passed = false;
   while (true) {
-    get_password(password);
-    passed = check_password(password, expected) ? 1 : 0;
+    get_password(password, 8);
+    passed = check_password(password) ? 1 : 0;
     if (passed) {
       unlock();
     }

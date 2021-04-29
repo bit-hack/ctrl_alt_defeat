@@ -3,17 +3,17 @@ out.elf:     file format elf32-littleriscv
 
 SYMBOL TABLE:
 00001000 l    d  .text	00000000 .text
-000010f4 l    d  .rodata.str1.4	00000000 .rodata.str1.4
+000010e0 l    d  .rodata.str1.4	00000000 .rodata.str1.4
 00000000 l    d  .riscv.attributes	00000000 .riscv.attributes
 00000000 l    d  .comment	00000000 .comment
 00000000 l    df *ABS*	00000000 main.c
-00001094 g     F .text	00000014 bad_password
-000010a8 g     F .text	00000010 unlock
+00001028 g     F .text	00000014 bad_password
+0000103c g     F .text	00000010 unlock
 00001000 g       .text	00000000 _start
-000010b8 g     F .text	0000003c main
-00001010 g     F .text	00000078 compare
+000010b0 g     F .text	00000030 main
+0000104c g     F .text	00000064 compare
 00001fff g       .rodata.str1.4	00000000 _end
-00001088 g     F .text	0000000c get_password
+00001010 g     F .text	00000018 get_password
 
 
 
@@ -22,72 +22,67 @@ Disassembly of section .text:
 00001000 <_start>:
     1000:	00000013          	nop
     1004:	00002137          	lui	sp,0x2
-    1008:	ffc10113          	addi	sp,sp,-4 # 1ffc <main+0xf44>
-    100c:	0ac0006f          	j	10b8 <main>
+    1008:	ffc10113          	addi	sp,sp,-4 # 1ffc <main+0xf4c>
+    100c:	0a40006f          	j	10b0 <main>
 
-00001010 <compare>:
-    1010:	00054583          	lbu	a1,0(a0)
-    1014:	00154803          	lbu	a6,1(a0)
-    1018:	00254603          	lbu	a2,2(a0)
-    101c:	00354683          	lbu	a3,3(a0)
-    1020:	00454703          	lbu	a4,4(a0)
-    1024:	f9158593          	addi	a1,a1,-111
-    1028:	f9d80813          	addi	a6,a6,-99
-    102c:	00554783          	lbu	a5,5(a0)
-    1030:	00183813          	seqz	a6,a6
-    1034:	0015b593          	seqz	a1,a1
-    1038:	f8c60613          	addi	a2,a2,-116
-    103c:	010585b3          	add	a1,a1,a6
-    1040:	00654503          	lbu	a0,6(a0)
-    1044:	00163613          	seqz	a2,a2
-    1048:	f9168693          	addi	a3,a3,-111
-    104c:	00b60633          	add	a2,a2,a1
-    1050:	0016b693          	seqz	a3,a3
-    1054:	f9070713          	addi	a4,a4,-112
-    1058:	00c686b3          	add	a3,a3,a2
-    105c:	00173713          	seqz	a4,a4
-    1060:	f8b78793          	addi	a5,a5,-117
-    1064:	00d70733          	add	a4,a4,a3
-    1068:	0017b793          	seqz	a5,a5
-    106c:	f8d50513          	addi	a0,a0,-115
-    1070:	00e787b3          	add	a5,a5,a4
-    1074:	00153513          	seqz	a0,a0
-    1078:	00f50533          	add	a0,a0,a5
-    107c:	ff950513          	addi	a0,a0,-7
-    1080:	00153513          	seqz	a0,a0
-    1084:	00008067          	ret
+00001010 <get_password>:
+    1010:	ff010113          	addi	sp,sp,-16
+    1014:	00c10593          	addi	a1,sp,12
+    1018:	00000893          	li	a7,0
+    101c:	00000073          	ecall
+    1020:	01010113          	addi	sp,sp,16
+    1024:	00008067          	ret
 
-00001088 <get_password>:
-    1088:	00000893          	li	a7,0
-    108c:	00000073          	ecall
-    1090:	00008067          	ret
+00001028 <bad_password>:
+    1028:	00000517          	auipc	a0,0x0
+    102c:	0b850513          	addi	a0,a0,184 # 10e0 <main+0x30>
+    1030:	00100893          	li	a7,1
+    1034:	00000073          	ecall
+    1038:	00008067          	ret
 
-00001094 <bad_password>:
-    1094:	00000517          	auipc	a0,0x0
-    1098:	06050513          	addi	a0,a0,96 # 10f4 <main+0x3c>
-    109c:	00100893          	li	a7,1
-    10a0:	00000073          	ecall
+0000103c <unlock>:
+    103c:	00000513          	li	a0,0
+    1040:	00200893          	li	a7,2
+    1044:	00000073          	ecall
+    1048:	00008067          	ret
+
+0000104c <compare>:
+    104c:	00054703          	lbu	a4,0(a0)
+    1050:	06f00793          	li	a5,111
+    1054:	04f71a63          	bne	a4,a5,10a8 <compare+0x5c>
+    1058:	00154603          	lbu	a2,1(a0)
+    105c:	06300693          	li	a3,99
+    1060:	00000793          	li	a5,0
+    1064:	02d61e63          	bne	a2,a3,10a0 <compare+0x54>
+    1068:	00254603          	lbu	a2,2(a0)
+    106c:	07400693          	li	a3,116
+    1070:	02d61863          	bne	a2,a3,10a0 <compare+0x54>
+    1074:	00354683          	lbu	a3,3(a0)
+    1078:	02e69463          	bne	a3,a4,10a0 <compare+0x54>
+    107c:	00454683          	lbu	a3,4(a0)
+    1080:	07000713          	li	a4,112
+    1084:	00e69e63          	bne	a3,a4,10a0 <compare+0x54>
+    1088:	00554683          	lbu	a3,5(a0)
+    108c:	07500713          	li	a4,117
+    1090:	00e69863          	bne	a3,a4,10a0 <compare+0x54>
+    1094:	00654783          	lbu	a5,6(a0)
+    1098:	f8d78793          	addi	a5,a5,-115
+    109c:	0017b793          	seqz	a5,a5
+    10a0:	00078513          	mv	a0,a5
     10a4:	00008067          	ret
+    10a8:	00000793          	li	a5,0
+    10ac:	ff5ff06f          	j	10a0 <compare+0x54>
 
-000010a8 <unlock>:
-    10a8:	00000513          	li	a0,0
-    10ac:	00200893          	li	a7,2
-    10b0:	00000073          	ecall
-    10b4:	00008067          	ret
-
-000010b8 <main>:
-    10b8:	fe010113          	addi	sp,sp,-32
-    10bc:	00112e23          	sw	ra,28(sp)
-    10c0:	00010513          	mv	a0,sp
-    10c4:	fc5ff0ef          	jal	ra,1088 <get_password>
-    10c8:	00010513          	mv	a0,sp
-    10cc:	f45ff0ef          	jal	ra,1010 <compare>
-    10d0:	00050e63          	beqz	a0,10ec <main+0x34>
-    10d4:	fd5ff0ef          	jal	ra,10a8 <unlock>
-    10d8:	00010513          	mv	a0,sp
-    10dc:	fadff0ef          	jal	ra,1088 <get_password>
-    10e0:	00010513          	mv	a0,sp
-    10e4:	f2dff0ef          	jal	ra,1010 <compare>
-    10e8:	fe0516e3          	bnez	a0,10d4 <main+0x1c>
-    10ec:	fa9ff0ef          	jal	ra,1094 <bad_password>
-    10f0:	fd1ff06f          	j	10c0 <main+0x8>
+000010b0 <main>:
+    10b0:	fe010113          	addi	sp,sp,-32
+    10b4:	00112e23          	sw	ra,28(sp)
+    10b8:	00010513          	mv	a0,sp
+    10bc:	01000593          	li	a1,16
+    10c0:	f51ff0ef          	jal	ra,1010 <get_password>
+    10c4:	00010513          	mv	a0,sp
+    10c8:	f85ff0ef          	jal	ra,104c <compare>
+    10cc:	00050663          	beqz	a0,10d8 <main+0x28>
+    10d0:	f6dff0ef          	jal	ra,103c <unlock>
+    10d4:	fe5ff06f          	j	10b8 <main+0x8>
+    10d8:	f51ff0ef          	jal	ra,1028 <bad_password>
+    10dc:	fddff06f          	j	10b8 <main+0x8>

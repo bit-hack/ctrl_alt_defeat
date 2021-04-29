@@ -98,7 +98,6 @@ void rv32i_model_t::step() {
       }
       break;
     }
-
   }
 }
 
@@ -106,11 +105,10 @@ bool rv32i_model_t::load_elf(const char *path) {
   if (!elf.load(path)) {
     return false;
   }
-  mem.reset();
+  mem.clear();
   if (!elf.upload(mem)) {
     return false;
   }
-  reset();
   set_pc(elf.get_entry_point());
   return true;
 }
