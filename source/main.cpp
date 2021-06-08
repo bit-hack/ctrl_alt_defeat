@@ -1,6 +1,7 @@
 #include <cstdio>
 #include <thread>
 #include <set>
+#include <string>
 
 #include <GLFW/glfw3.h>
 
@@ -320,14 +321,6 @@ void gui_cpu() {
     will_continue = false;
     follow_addr = model.get_pc();
   }
-#if 0
-  ImGui::SameLine();
-  if (ImGui::Button("Reset")) {
-    will_continue = false;
-    model.reset();
-    follow_addr = model.get_pc();
-  }
-#endif
   ImGui::SameLine();
   if (ImGui::Button("Reset")) {
     will_continue = false;
